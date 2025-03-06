@@ -1,13 +1,24 @@
-#include <algorithm>
-#include <vector>
 #include <type_traits>
-#include <span>
-
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
+#include <span>
 
-struct Serializer;
-struct Deserializer;
+template<typename T>
+constexpr auto descriptor_of()
+{
+  static_assert(false, "descriptor_of must be specialized in order to be used");
+}
+
+template<typename T>
+std::vector<uint8_t> serialize(T const& t);
+
+template<typename T>
+T deserialize(std::span<uint8_t const> buffer);
+
+namespace detail
+{
 
 template<typename T>
 struct underlying_member;
@@ -22,15 +33,6 @@ template<typename T>
 using underlying_member_t = underlying_member<T>::type;
 
 template<typename T>
-constexpr auto descriptor_of()
-{
-  static_assert(false, "descriptor_of must be specialized in order to be used");
-}
-
-template<typename T>
-std::vector<uint8_t> serialize(T const& t);
-
-template<typename T>
 consteval size_t serialized_sizeof()
 {
   if constexpr (std::is_class_v<T>)
@@ -43,15 +45,6 @@ consteval size_t serialized_sizeof()
     return sum;
   }
   return sizeof(T);
-}
-
-template<typename T>
-T deserialize(std::span<uint8_t const> buffer);
-
-template<typename T>
-T deserialize(std::vector<uint8_t> const& buffer)
-{
-  return deserialize<T>(std::span(buffer.data(), buffer.size()));
 }
 
 struct Serializer final
@@ -73,26 +66,6 @@ private:
   std::vector<uint8_t> m_buffer {};
 };
 
-template<typename T>
-std::vector<uint8_t> serialize(T const& t)
-{
-  if constexpr (std::is_class_v<T>)
-  {
-    Serializer s;
-
-    std::apply([&](auto&& ... args) {
-      ((s.write(t.*args)), ...);
-    }, descriptor_of<T>());
-
-    return s.result();
-  }
-
-  uint8_t const * begin = reinterpret_cast<uint8_t const*>(&t);
-  uint8_t const * end = begin + sizeof(T);
-
-  return std::vector<uint8_t>(begin, end);
-}
-
 struct Deserializer final
 {
 public:
@@ -111,12 +84,34 @@ private:
   std::span<uint8_t const> m_buffer;
 };
 
+} // namespace detail
+
+template<typename T>
+std::vector<uint8_t> serialize(T const& t)
+{
+  if constexpr (std::is_class_v<T>)
+  {
+    detail::Serializer s;
+
+    std::apply([&](auto&& ... args) {
+      ((s.write(t.*args)), ...);
+    }, descriptor_of<T>());
+
+    return s.result();
+  }
+
+  uint8_t const * begin = reinterpret_cast<uint8_t const*>(&t);
+  uint8_t const * end = begin + sizeof(T);
+
+  return std::vector<uint8_t>(begin, end);
+}
+
 template<typename T>
 T deserialize(std::span<uint8_t const> buffer)
 {
   if constexpr (std::is_class_v<T>)
   {
-    Deserializer d(buffer);
+    detail::Deserializer d(buffer);
 
     T result;
     std::apply([&](auto&& ... args) {
@@ -134,4 +129,10 @@ T deserialize(std::span<uint8_t const> buffer)
     reinterpret_cast<uint8_t*>(&result));
 
   return result;
+}
+
+template<typename T>
+T deserialize(std::vector<uint8_t> const& buffer)
+{
+  return deserialize<T>(std::span(buffer.data(), buffer.size()));
 }
