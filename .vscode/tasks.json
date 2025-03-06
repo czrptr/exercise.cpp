@@ -1,0 +1,13 @@
+{
+  "tasks": [
+    {
+      "label": "bazel build test",
+      "type": "bazel",
+      "command": "build",
+      "targets": [
+        "//test:test"
+      ]
+    },
+  ],
+  "version": "2.0.0"
+}
