@@ -10,6 +10,18 @@ struct Serializer;
 struct Deserializer;
 
 template<typename T>
+struct underlying_member;
+
+template<typename StructT, typename MemberT>
+struct underlying_member<MemberT StructT::*>
+{
+  using type = MemberT;
+};
+
+template<typename T>
+using underlying_member_t = underlying_member<T>::type;
+
+template<typename T>
 constexpr auto descriptor_of()
 {
   static_assert(false, "descriptor_of must be specialized in order to be used");
@@ -17,6 +29,21 @@ constexpr auto descriptor_of()
 
 template<typename T>
 std::vector<uint8_t> serialize(T const& t);
+
+template<typename T>
+consteval size_t serialized_sizeof()
+{
+  if constexpr (std::is_class_v<T>)
+  {
+    size_t sum = 0u;
+    std::apply([&](auto&& ... args) {
+      ((sum += sizeof(underlying_member_t<typeof(args)>)), ...);
+    }, descriptor_of<T>());
+
+    return sum;
+  }
+  return sizeof(T);
+}
 
 template<typename T>
 T deserialize(std::span<uint8_t const> buffer);
@@ -77,7 +104,7 @@ public:
   void read(T& t, MemberT T::* member)
   {
     t.*member = deserialize<MemberT>(m_buffer);
-    m_buffer = m_buffer.subspan(sizeof(MemberT));
+    m_buffer = m_buffer.subspan(serialized_sizeof<MemberT>());
   }
 
 private:
@@ -103,7 +130,7 @@ T deserialize(std::span<uint8_t const> buffer)
 
   std::copy(
     buffer.begin(),
-    buffer.end() + sizeof(T),
+    buffer.begin() + sizeof(T),
     reinterpret_cast<uint8_t*>(&result));
 
   return result;

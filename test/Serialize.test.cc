@@ -55,7 +55,7 @@ TEST_F(SerializeTest, User_Defined_Types)
 
 TEST_F(SerializeTest, Nested_User_Defined_Types)
 {
-  auto node = Node { 'a', 69, 420.0f, { '0', 77.777 }, nullptr };
+  auto node = Node {};
   auto value = Node { 'b', 32, 123.4f, { '9', 9.9999 }, &node };
 
   EXPECT_EQ(value, serialize_and_deserialize(value));
