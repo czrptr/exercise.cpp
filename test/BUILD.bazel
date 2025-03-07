@@ -4,7 +4,7 @@ cc_test(
   name = "test",
   srcs = glob(["*.cc"]),
   deps = [
-    "//source:source",
+    "//serde:serde",
     "@com_google_googletest//:gtest_main",
   ],
 )
