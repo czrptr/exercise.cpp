@@ -30,7 +30,6 @@ struct Node
   int b;
   float c;
   Data d;
-  Node* next;
 
   friend auto operator<=>(Node const& lhs, Node const& rhs) = default;
 };
@@ -38,7 +37,7 @@ struct Node
 template<>
 constexpr auto descriptor_of<Node>()
 {
-  return std::make_tuple(&Node::a, &Node::b, &Node::c, &Node::d, &Node::next);
+  return std::make_tuple(&Node::a, &Node::b, &Node::c, &Node::d);
 }
 
 TEST_F(SerializeTest, Builtin_Types)
@@ -55,8 +54,7 @@ TEST_F(SerializeTest, User_Defined_Types)
 
 TEST_F(SerializeTest, Nested_User_Defined_Types)
 {
-  auto node = Node {};
-  auto value = Node { 'b', 32, 123.4f, { '9', 9.9999 }, &node };
+  auto value = Node { 'b', 32, 123.4f, { '9', 9.9999 } };
 
   EXPECT_EQ(value, serialize_and_deserialize(value));
 }

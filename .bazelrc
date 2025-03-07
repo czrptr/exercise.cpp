@@ -1,5 +1,5 @@
-build --action_env=CC=clang-19
-build --action_env=CXX=clang++-19
+build --action_env=CC=clang
+build --action_env=CXX=clang++
 
 build --cxxopt=-std=gnu++23
 build --cxxopt=-stdlib=libc++

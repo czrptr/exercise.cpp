@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include <type_traits>
 #include <algorithm>
 #include <cstddef>
@@ -5,11 +6,7 @@
 #include <vector>
 #include <span>
 
-template<typename T>
-constexpr auto descriptor_of()
-{
-  static_assert(false, "descriptor_of must be specialized in order to be used");
-}
+#include "source/Tag.hh"
 
 template<typename T>
 std::vector<uint8_t> serialize(T const& t);
@@ -19,18 +16,6 @@ T deserialize(std::span<uint8_t const> buffer);
 
 namespace detail
 {
-
-template<typename T>
-struct underlying_member;
-
-template<typename StructT, typename MemberT>
-struct underlying_member<MemberT StructT::*>
-{
-  using type = MemberT;
-};
-
-template<typename T>
-using underlying_member_t = underlying_member<T>::type;
 
 template<typename T>
 consteval size_t serialized_sizeof()
@@ -77,7 +62,7 @@ public:
   void read(T& t, MemberT T::* member)
   {
     t.*member = deserialize<MemberT>(m_buffer);
-    m_buffer = m_buffer.subspan(serialized_sizeof<MemberT>());
+    m_buffer = m_buffer.subspan(serialized_sizeof<MemberT>() + sizeof(uint32_t));
   }
 
 private:
@@ -99,11 +84,24 @@ std::vector<uint8_t> serialize(T const& t)
 
     return s.result();
   }
+  else
+  {
+    uint32_t const tag = tag_of<T>();
+    std::vector<uint8_t> buffer {};
+    buffer.reserve(sizeof(tag) + sizeof(T));
 
-  uint8_t const * begin = reinterpret_cast<uint8_t const*>(&t);
-  uint8_t const * end = begin + sizeof(T);
+    uint8_t const * begin = reinterpret_cast<uint8_t const*>(&tag);
+    uint8_t const * end = begin + sizeof(tag);
 
-  return std::vector<uint8_t>(begin, end);
+    buffer.insert(buffer.end(), begin, end);
+
+    begin = reinterpret_cast<uint8_t const*>(&t);
+    end = begin + sizeof(T);
+
+    buffer.insert(buffer.end(), begin, end);
+
+    return buffer;
+  }
 }
 
 template<typename T>
@@ -120,15 +118,32 @@ T deserialize(std::span<uint8_t const> buffer)
 
     return result;
   }
+  else
+  {
+    uint32_t tag;
+    auto begin = buffer.begin();
 
-  T result;
+    std::copy(
+      begin,
+      begin + sizeof(uint32_t),
+      reinterpret_cast<uint8_t*>(&tag));
 
-  std::copy(
-    buffer.begin(),
-    buffer.begin() + sizeof(T),
-    reinterpret_cast<uint8_t*>(&result));
+    if (tag != tag_of<T>())
+    {
+      // TODO better error message
+      throw std::logic_error("Mismatching metadata");
+    }
 
-  return result;
+    T result;
+    begin += sizeof(uint32_t);
+
+    std::copy(
+      begin,
+      begin + sizeof(T),
+      reinterpret_cast<uint8_t*>(&result));
+
+    return result;
+  }
 }
 
 template<typename T>

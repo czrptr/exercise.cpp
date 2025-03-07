@@ -1,6 +1,11 @@
 {
   "tasks": [
     {
+      "label": "bazel compile commands",
+      "type": "shell",
+      "command": "bazel-compile-commands //...",
+    },
+    {
       "label": "bazel build test",
       "type": "bazel",
       "command": "build",
