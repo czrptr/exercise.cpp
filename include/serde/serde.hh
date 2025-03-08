@@ -99,7 +99,7 @@ void check_and_advance(Tag tag, size_t& cursor)
 }
 
 template <typename T>
-T deserialize_and_check(std::span<std::byte const> bytes, size_t& cursor)
+T deserialize_check_and_advance(std::span<std::byte const> bytes, size_t& cursor)
 {
   auto const [tag, value] = deserialize_with_tag<T>(bytes);
   check_and_advance<T>(tag, cursor);
@@ -146,7 +146,7 @@ T deserialize_impl(std::span<std::byte const> bytes, size_t& cursor)
   }
   else
   {
-    return deserialize_and_check<T>(bytes, cursor);
+    return deserialize_check_and_advance<T>(bytes, cursor);
   }
 }
 
