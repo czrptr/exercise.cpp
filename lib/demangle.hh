@@ -5,6 +5,6 @@
 namespace lib
 {
 
-std::string demangle(const char* mangled_name);
+std::string demangle(char const* mangled_name);
 
-}  // namespace lib
+} // namespace lib

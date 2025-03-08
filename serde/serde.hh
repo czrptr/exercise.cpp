@@ -6,15 +6,17 @@
 #include <stdexcept>
 #include <vector>
 
-#include <range/v3/all.hpp>
 #include <fmt/core.h>
 
-#include "lib/type_traits.hh"
+#include <range/v3/all.hpp>
+
 #include "lib/rtti.hh"
 #include "lib/span.hh"
+#include "lib/type_traits.hh"
 
 #ifdef RTTI_PRESENT
 #include <unordered_map>
+
 #include "lib/demangle.hh"
 #endif
 
@@ -31,7 +33,7 @@ namespace detail
 std::unordered_map<Tag, std::string>& typename_of_tag();
 #endif
 
-template<typename T>
+template <typename T>
 std::vector<uint8_t> serialize(T const& t)
 {
   auto const begin = reinterpret_cast<uint8_t const*>(&t);
@@ -39,19 +41,17 @@ std::vector<uint8_t> serialize(T const& t)
   return bytes | ranges::to<std::vector>;
 }
 
-template<typename T>
+template <typename T>
 std::vector<uint8_t> serialize_with_tag(T const& t)
 {
   auto const tag = tag_of<T>;
 #ifdef RTTI_PRESENT
   typename_of_tag()[tag] = lib::demangle(typeid(T).name());
 #endif
-  return
-    ranges::concat_view(serialize(tag), serialize(t))
-    | ranges::to<std::vector>;
+  return ranges::concat_view(serialize(tag), serialize(t)) | ranges::to<std::vector>;
 }
 
-template<typename T>
+template <typename T>
 T deserialize(std::span<uint8_t const> bytes)
 {
   assert(bytes.size() == sizeof(T));
@@ -61,7 +61,7 @@ T deserialize(std::span<uint8_t const> bytes)
   return result;
 }
 
-template<typename T>
+template <typename T>
 std::pair<Tag, T> deserialize_with_tag(std::span<uint8_t const> bytes)
 {
   auto [tag_bytes, value_bytes] = lib::split(bytes, sizeof(Tag));
@@ -71,22 +71,22 @@ std::pair<Tag, T> deserialize_with_tag(std::span<uint8_t const> bytes)
   };
 }
 
-template<typename T>
+template <typename T>
 void check(Tag tag, size_t index)
 {
-  if (tag == tag_of<T>) return;
+  if (tag == tag_of<T>)
+    return;
 
-  throw std::logic_error(
-    fmt::format(
-      "Metadata mismatch: expecting '{}' but found '{}' starting at byte {}",
+  throw std::logic_error(fmt::format(
+    "Metadata mismatch: expecting '{}' but found '{}' starting at byte {}",
 #ifdef RTTI_PRESENT
-      lib::demangle(typeid(T).name()), typename_of_tag()[tag], index));
+    lib::demangle(typeid(T).name()), typename_of_tag()[tag], index));
 #else
-      tag_of<T>, tag, index));
+    tag_of<T>, tag, index));
 #endif
 }
 
-template<typename T>
+template <typename T>
 T deserialize_and_check_tag(std::span<uint8_t const> bytes, size_t index)
 {
   auto [tag, value] = deserialize_with_tag<T>(bytes);
@@ -94,17 +94,18 @@ T deserialize_and_check_tag(std::span<uint8_t const> bytes, size_t index)
   return value;
 }
 
-template<typename T>
+template <typename T>
 std::vector<uint8_t> serialize_impl(T const& t)
 {
   std::vector<std::vector<uint8_t>> bytes;
   if constexpr (std::is_class_v<T>)
   {
     bytes.push_back(serialize(tag_of<T>));
-    foreach_member_of<T>([&](auto pointer_to_member)
-    {
-      bytes.push_back(serialize_impl(t.*pointer_to_member));
-    });
+    foreach_member_of<T>(
+      [&](auto pointer_to_member)
+      {
+        bytes.push_back(serialize_impl(t.*pointer_to_member));
+      });
     return bytes | ranges::views::join | ranges::to<std::vector>;
   }
   else
@@ -113,7 +114,7 @@ std::vector<uint8_t> serialize_impl(T const& t)
   }
 }
 
-template<typename T>
+template <typename T>
 T deserialize_impl(std::span<uint8_t const> bytes, size_t index)
 {
   if constexpr (std::is_class_v<T>)
@@ -123,14 +124,15 @@ T deserialize_impl(std::span<uint8_t const> bytes, size_t index)
     bytes = bytes_left;
     index += bytes_to_process.size();
     T result;
-    foreach_member_of<T>([&](auto pointer_to_member)
-    {
-      using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
-      auto [bytes_to_process, bytes_left] = lib::split(bytes, serialized_sizeof<Member>);
-      result.*pointer_to_member = deserialize_impl<Member>(bytes_to_process, index);
-      bytes = bytes_left;
-      index += bytes_to_process.size();
-    });
+    foreach_member_of<T>(
+      [&](auto pointer_to_member)
+      {
+        using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
+        auto [bytes_to_process, bytes_left] = lib::split(bytes, serialized_sizeof<Member>);
+        result.*pointer_to_member = deserialize_impl<Member>(bytes_to_process, index);
+        bytes = bytes_left;
+        index += bytes_to_process.size();
+      });
     return result;
   }
   else
@@ -141,19 +143,19 @@ T deserialize_impl(std::span<uint8_t const> bytes, size_t index)
 
 } // namespace detail
 
-template<typename T>
+template <typename T>
 std::vector<uint8_t> serialize(T const& t)
 {
   return detail::serialize_impl(t);
 }
 
-template<typename T>
+template <typename T>
 T deserialize(std::span<uint8_t const> bytes)
 {
   return detail::deserialize_impl<T>(bytes, 0);
 }
 
-template<typename T>
+template <typename T>
 T deserialize(std::vector<uint8_t> const& buffer)
 {
   return deserialize<T>(std::span(buffer.data(), buffer.size()));

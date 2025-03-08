@@ -1,23 +1,22 @@
 #pragma once
 
-#include <type_traits> // IWYU pragma: export
+#include <type_traits>
 
 namespace lib
 {
-
 namespace detail
 {
 
-template<typename T>
+template <typename T>
 struct remove_member_pointer_impl;
 
-template<typename StructT, typename MemberT>
+template <typename StructT, typename MemberT>
 struct remove_member_pointer_impl<MemberT StructT::*>
 {
   using type = MemberT;
 };
 
-template<typename StructT, typename MemberT>
+template <typename StructT, typename MemberT>
 struct remove_member_pointer_impl<MemberT StructT::* const>
 {
   using type = MemberT;
@@ -25,14 +24,15 @@ struct remove_member_pointer_impl<MemberT StructT::* const>
 
 } // namespace detail
 
-template<typename T>
+template <typename T>
 using remove_member_pointer = detail::remove_member_pointer_impl<T>::type;
 
 template <typename... Ts>
 struct type_list;
 
 template <typename T, typename... Ts>
-struct type_list<T, Ts...> {
+struct type_list<T, Ts...>
+{
   using head = T;
   using rest = type_list<Ts...>;
 };
@@ -41,7 +41,8 @@ template <auto... V>
 struct value_list;
 
 template <auto V, auto... Vs>
-struct value_list<V, Vs...> {
+struct value_list<V, Vs...>
+{
   static constexpr auto head = V;
   using rest = value_list<Vs...>;
 };
@@ -69,7 +70,7 @@ private:
   }
 
 public:
-  template<typename T>
+  template <typename T>
   static constexpr auto get = get_impl<T>();
 };
 
