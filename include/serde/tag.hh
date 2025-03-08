@@ -21,7 +21,9 @@ constexpr Tag hash_of(std::vector<Tag> const& vector)
 {
   // see https://stackoverflow.com/a/72073933
   return std::accumulate(
-    vector.begin(), vector.end(), vector.size(),
+    vector.begin(),
+    vector.end(),
+    vector.size(),
     [](Tag acc, Tag next)
     {
       next = ((next >> 16) ^ next) * 0x45d9f3b;
@@ -38,6 +40,11 @@ Tag tag_of_impl()
   {
     // TODO: add pointer serialization support
     static_assert(false, "cannot calculate tag for pointer type");
+  }
+  else if constexpr (lib::is_vector<T>)
+  {
+    std::hash<std::string> const hasher;
+    return hasher(lib::nameof<T>());
   }
   else if constexpr (std::is_class_v<T>)
   {

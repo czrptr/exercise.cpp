@@ -99,9 +99,20 @@ T deserialize_check_and_advance(std::span<std::byte const> bytes, size_t& cursor
 template <typename T>
 std::vector<std::byte> serialize_impl(T const& t)
 {
-  std::vector<std::vector<std::byte>> bytes;
-  if constexpr (std::is_class_v<T>)
+  if constexpr (lib::is_vector<T>)
   {
+    std::vector<std::vector<std::byte>> bytes;
+    bytes.push_back(serialize(tag_of<T>()));
+    bytes.push_back(serialize_with_tag(t.size()));
+    for (auto const& element : t)
+    {
+      bytes.push_back(serialize_impl(element));
+    }
+    return bytes | ranges::views::join | ranges::to<std::vector>;
+  }
+  else if constexpr (std::is_class_v<T>)
+  {
+    std::vector<std::vector<std::byte>> bytes;
     bytes.push_back(serialize(tag_of<T>()));
     foreach_member_of<T>(
       [&](auto const pointer_to_member)
@@ -119,16 +130,34 @@ std::vector<std::byte> serialize_impl(T const& t)
 template <typename T>
 T deserialize_impl(std::span<std::byte const> bytes, size_t& cursor)
 {
-  if constexpr (std::is_class_v<T>)
+  if constexpr (lib::is_vector<T>)
   {
-    auto const bytes_to_process = lib::take(bytes, sizeof(Tag));
+    auto bytes_to_process = lib::take(bytes, sizeof(Tag));
+    check_and_advance<T>(deserialize<Tag>(bytes_to_process), cursor);
+    using SizeType = typename T::size_type;
+    bytes_to_process = lib::take(bytes, serde::serialized_sizeof<SizeType>);
+    auto const size = deserialize_check_and_advance<size_t>(bytes_to_process, cursor);
+    T result;
+    result.reserve(size);
+    for (size_t it = 0u; it < size; it += 1u)
+    {
+      using Element = typename T::value_type;
+      bytes_to_process = lib::take(bytes, serde::serialized_sizeof<Element>);
+      auto const element = deserialize_impl<Element>(bytes_to_process, cursor);
+      result.push_back(element);
+    }
+    return result;
+  }
+  else if constexpr (std::is_class_v<T>)
+  {
+    auto bytes_to_process = lib::take(bytes, sizeof(Tag));
     check_and_advance<T>(deserialize<Tag>(bytes_to_process), cursor);
     T result;
     foreach_member_of<T>(
       [&](auto const pointer_to_member)
       {
         using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
-        auto const bytes_to_process = lib::take(bytes, serialized_sizeof<Member>);
+        bytes_to_process = lib::take(bytes, serialized_sizeof<Member>);
         result.*pointer_to_member = deserialize_impl<Member>(bytes_to_process, cursor);
       });
     return result;

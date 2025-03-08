@@ -1,6 +1,7 @@
 #pragma once
 
 #include <type_traits>
+#include <vector>
 
 namespace lib
 {
@@ -22,10 +23,23 @@ struct remove_member_pointer_impl<MemberT StructT::* const>
   using type = MemberT;
 };
 
+template <typename T>
+struct is_vector_impl : std::false_type
+{
+};
+
+template <typename T, typename Alloc>
+struct is_vector_impl<std::vector<T, Alloc>> : std::true_type
+{
+};
+
 } // namespace detail
 
 template <typename T>
 using remove_member_pointer = detail::remove_member_pointer_impl<T>::type;
+
+template <typename T>
+constexpr bool is_vector = detail::is_vector_impl<T>::value;
 
 template <typename... Ts>
 struct type_list;

@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include "serde/tag.hh"
+
 // TODO: test with MSVC
 
 enum class YesOrNo
@@ -131,4 +133,24 @@ TEST(Serde, metadata_mismatch)
   {
     EXPECT_STREQ("Metadata mismatch: expecting 'double' but found 'int' starting at byte 17", error.what());
   }
+}
+
+TEST(Serde, serialize_vector_of_builtins)
+{
+  std::vector<int> const value1 = {0, 1, 2, 3, 4};
+  EXPECT_EQ(value1, serialize_and_deserialize(value1));
+
+  std::vector<float> const value2 = {0.5f, 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f};
+  EXPECT_EQ(value2, serialize_and_deserialize(value2));
+}
+
+TEST(Serde, serialize_vector_of_structs)
+{
+  auto const d = Data{'d', 420.69};
+  std::vector<Data> const value1 = {d, d, d, d};
+  EXPECT_EQ(value1, serialize_and_deserialize(value1));
+
+  auto const n = Node{'c', 24, 63.0f, {'a', 999.999}, YesOrNo::Yes};
+  std::vector<Node> const value2 = {n, n, n};
+  EXPECT_EQ(value2, serialize_and_deserialize(value2));
 }
