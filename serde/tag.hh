@@ -42,7 +42,7 @@ consteval Tag tag_of_impl()
   {
     std::vector<Tag> member_tags;
     detail::foreach_member_of<T>(
-      [&](auto pointer_to_member)
+      [&](auto const pointer_to_member)
       {
         using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
         member_tags.push_back(tag_of_impl<Member>());

@@ -15,7 +15,7 @@ template <typename T, typename F>
 constexpr void foreach_member_of(F&& f)
 {
   std::apply(
-    [f](auto&&... members)
+    [f](auto... members)
     {
       // apply f to each argument
       ((f(members)), ...);
