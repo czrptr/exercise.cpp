@@ -2,7 +2,7 @@ load("@rules_cc//cc:defs.bzl", "cc_test")
 
 cc_test(
   name = "test",
-  srcs = glob(["*.cc"]),
+  srcs = glob(["**/*.hh", "**/*.cc"]),
   deps = [
     "//serde:serde",
     "@com_google_googletest//:gtest_main",

@@ -2,8 +2,8 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
   name = "serde",
-  srcs = glob(["*.cc"], allow_empty = True),
-  hdrs = glob(["*.hh"], allow_empty = True),
+  srcs = glob(["**/*.cc"]),
+  hdrs = glob(["**/*.hh"]),
   deps = [
     "//lib:lib",
     "@range-v3//:range-v3",
