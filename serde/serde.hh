@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bit>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -33,12 +34,25 @@ namespace detail
 std::unordered_map<Tag, std::string>& typename_of_tag();
 #endif
 
+inline auto little_endian_order()
+{
+  if constexpr (std::endian::native == std::endian::little)
+  {
+    return ranges::views::all;
+  }
+  else // std::endian::native == std::endian::big
+  {
+    return ranges::views::reverse;
+  }
+}
+
 template <typename T>
 std::vector<uint8_t> serialize(T const& t)
 {
   auto const begin = reinterpret_cast<uint8_t const*>(&t);
   auto const bytes = ranges::subrange(begin, begin + sizeof(T));
-  return bytes | ranges::to<std::vector>;
+
+  return bytes | little_endian_order() | ranges::to<std::vector>;
 }
 
 template <typename T>
@@ -57,7 +71,7 @@ T deserialize(std::span<uint8_t const> bytes)
   assert(bytes.size() == sizeof(T));
 
   T result;
-  ranges::copy(bytes, reinterpret_cast<uint8_t*>(&result));
+  ranges::copy(bytes | little_endian_order(), reinterpret_cast<uint8_t*>(&result));
   return result;
 }
 
@@ -65,10 +79,7 @@ template <typename T>
 std::pair<Tag, T> deserialize_with_tag(std::span<uint8_t const> bytes)
 {
   auto [tag_bytes, value_bytes] = lib::split(bytes, sizeof(Tag));
-  return {
-    deserialize<Tag>(tag_bytes),
-    deserialize<T>(value_bytes),
-  };
+  return {deserialize<Tag>(tag_bytes), deserialize<T>(value_bytes)};
 }
 
 template <typename T>
