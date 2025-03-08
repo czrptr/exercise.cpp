@@ -56,14 +56,20 @@ std::pair<Tag, T> deserialize_with_tag(std::span<uint8_t const> bytes)
 }
 
 template<typename T>
-T deserialize_and_check_tag(std::span<uint8_t const> bytes)
+void check(Tag tag)
 {
-  auto [tag, value] = detail::deserialize_with_tag<T>(bytes);
   if (tag != tag_of<T>)
   {
     // TODO: improve error message
     throw std::logic_error("Metadata mismatch");
   }
+}
+
+template<typename T>
+T deserialize_and_check_tag(std::span<uint8_t const> bytes)
+{
+  auto [tag, value] = detail::deserialize_with_tag<T>(bytes);
+  check<T>(tag);
   return value;
 }
 
@@ -75,6 +81,7 @@ std::vector<uint8_t> serialize(T const& t)
   std::vector<std::vector<uint8_t>> bytes;
   if constexpr (std::is_class_v<T>)
   {
+    bytes.push_back(detail::serialize(tag_of<T>));
     detail::foreach_member_of<T>([&](auto pointer_to_member)
     {
       bytes.push_back(detail::serialize_with_tag(t.*pointer_to_member));
@@ -92,6 +99,9 @@ T deserialize(std::span<uint8_t const> bytes)
 {
   if constexpr (std::is_class_v<T>)
   {
+    auto [bytes_to_process, bytes_left] = lib::split(bytes, sizeof(Tag));
+    detail::check<T>(detail::deserialize<Tag>(bytes_to_process));
+    bytes = bytes_left;
     T result;
     detail::foreach_member_of<T>([&](auto pointer_to_member)
     {

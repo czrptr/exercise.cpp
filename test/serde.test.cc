@@ -58,11 +58,15 @@ TEST(Serde, packed_sizeof)
 TEST(Serde, serialized_sizeof)
 {
   EXPECT_EQ(
-    sizeof(char) + sizeof(double) + 2 * sizeof(serde::Tag),
+    sizeof(char) + sizeof(serde::Tag),
+    serde::serialized_sizeof<char>);
+
+  EXPECT_EQ(
+    sizeof(char) + sizeof(double) + 3 * sizeof(serde::Tag),
     serde::serialized_sizeof<Data>);
 
   EXPECT_EQ(
-    2 * sizeof(char) + sizeof(int) + sizeof(float) + sizeof(double) + 4 * sizeof(serde::Tag),
+    2 * sizeof(char) + sizeof(int) + sizeof(float) + sizeof(double) + 7 * sizeof(serde::Tag),
     serde::serialized_sizeof<Node>);
 }
 
