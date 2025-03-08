@@ -10,7 +10,7 @@
       "type": "bazel",
       "command": "build",
       "targets": [
-        "//test:test"
+        "//:test"
       ]
     },
   ],
