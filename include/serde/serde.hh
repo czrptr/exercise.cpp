@@ -80,9 +80,10 @@ void check_and_advance(Tag tag, size_t& cursor)
     cursor += sizeof(Tag);
     return;
   }
-
   throw std::logic_error(fmt::format(
-    "Metadata mismatch: expecting '{}' but found '{}' starting at byte {}", lib::nameof<T>(), typename_of_tag()[tag],
+    "Metadata mismatch: expecting '{}' but found '{}' starting at byte {}",
+    lib::nameof<T>(),
+    typename_of_tag()[tag],
     cursor));
 }
 
