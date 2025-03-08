@@ -3,7 +3,6 @@
 #include <bit>
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <stdexcept>
 #include <vector>
 
@@ -34,7 +33,7 @@ namespace detail
 std::unordered_map<Tag, std::string>& typename_of_tag();
 #endif
 
-inline auto little_endian_order()
+inline constexpr auto little_endian_order()
 {
   if constexpr (std::endian::native == std::endian::little)
   {
@@ -47,16 +46,15 @@ inline auto little_endian_order()
 }
 
 template <typename T>
-std::vector<uint8_t> serialize(T const& t)
+std::vector<std::byte> serialize(T const& t)
 {
-  auto const begin = reinterpret_cast<uint8_t const*>(&t);
+  auto const begin = reinterpret_cast<std::byte const*>(&t);
   auto const bytes = ranges::subrange(begin, begin + sizeof(T));
-
   return bytes | little_endian_order() | ranges::to<std::vector>;
 }
 
 template <typename T>
-std::vector<uint8_t> serialize_with_tag(T const& t)
+std::vector<std::byte> serialize_with_tag(T const& t)
 {
   auto const tag = tag_of<T>;
 #ifdef RTTI_PRESENT
@@ -66,17 +64,17 @@ std::vector<uint8_t> serialize_with_tag(T const& t)
 }
 
 template <typename T>
-T deserialize(std::span<uint8_t const> bytes)
+T deserialize(std::span<std::byte const> bytes)
 {
   assert(bytes.size() == sizeof(T));
 
   T result;
-  ranges::copy(bytes | little_endian_order(), reinterpret_cast<uint8_t*>(&result));
+  ranges::copy(bytes | little_endian_order(), reinterpret_cast<std::byte*>(&result));
   return result;
 }
 
 template <typename T>
-std::pair<Tag, T> deserialize_with_tag(std::span<uint8_t const> bytes)
+std::pair<Tag, T> deserialize_with_tag(std::span<std::byte const> bytes)
 {
   auto [tag_bytes, value_bytes] = lib::split(bytes, sizeof(Tag));
   return {deserialize<Tag>(tag_bytes), deserialize<T>(value_bytes)};
@@ -98,7 +96,7 @@ void check(Tag tag, size_t index)
 }
 
 template <typename T>
-T deserialize_and_check_tag(std::span<uint8_t const> bytes, size_t index)
+T deserialize_and_check_tag(std::span<std::byte const> bytes, size_t index)
 {
   auto [tag, value] = deserialize_with_tag<T>(bytes);
   check<T>(tag, index);
@@ -106,9 +104,9 @@ T deserialize_and_check_tag(std::span<uint8_t const> bytes, size_t index)
 }
 
 template <typename T>
-std::vector<uint8_t> serialize_impl(T const& t)
+std::vector<std::byte> serialize_impl(T const& t)
 {
-  std::vector<std::vector<uint8_t>> bytes;
+  std::vector<std::vector<std::byte>> bytes;
   if constexpr (std::is_class_v<T>)
   {
     bytes.push_back(serialize(tag_of<T>));
@@ -126,7 +124,7 @@ std::vector<uint8_t> serialize_impl(T const& t)
 }
 
 template <typename T>
-T deserialize_impl(std::span<uint8_t const> bytes, size_t index)
+T deserialize_impl(std::span<std::byte const> bytes, size_t index)
 {
   if constexpr (std::is_class_v<T>)
   {
@@ -155,19 +153,19 @@ T deserialize_impl(std::span<uint8_t const> bytes, size_t index)
 } // namespace detail
 
 template <typename T>
-std::vector<uint8_t> serialize(T const& t)
+std::vector<std::byte> serialize(T const& t)
 {
   return detail::serialize_impl(t);
 }
 
 template <typename T>
-T deserialize(std::span<uint8_t const> bytes)
+T deserialize(std::span<std::byte const> bytes)
 {
   return detail::deserialize_impl<T>(bytes, 0);
 }
 
 template <typename T>
-T deserialize(std::vector<uint8_t> const& buffer)
+T deserialize(std::vector<std::byte> const& buffer)
 {
   return deserialize<T>(std::span(buffer.data(), buffer.size()));
 }

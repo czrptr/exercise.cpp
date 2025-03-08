@@ -105,7 +105,7 @@ TEST(Serde, metadata_mismatch)
   auto bytes = [&]()
   {
     using namespace serde;
-    std::vector<std::vector<uint8_t>> bytes;
+    std::vector<std::vector<std::byte>> bytes;
 
     bytes.push_back(detail::serialize(tag_of<Data>));
     bytes.push_back(detail::serialize(tag_of<char>));

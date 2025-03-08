@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <numeric>
-#include <type_traits>
 #include <vector>
 
 #include "lib/type_traits.hh"
