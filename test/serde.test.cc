@@ -94,3 +94,12 @@ TEST(Serde, serialize_and_deserialize_structs)
   auto value2 = Node { 'c', 24, 63.0f, { 'a', 999.999 } };
   EXPECT_EQ(value2, serialize_and_deserialize(value2));
 }
+
+TEST(Serde, serialize_length_calculation)
+{
+  auto bytes1 = serde::serialize(Data { 'a', 999.999 });
+  EXPECT_EQ(serde::serialized_sizeof<Data>, bytes1.size());
+
+  auto bytes2 = serde::serialize(Node { 'c', 24, 63.0f, { 'a', 999.999 } });
+  EXPECT_EQ(serde::serialized_sizeof<Node>, bytes2.size());
+}

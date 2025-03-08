@@ -7,6 +7,7 @@ cc_library(
   deps = [
     "//lib:lib",
     "@range-v3//:range-v3",
+    "@fmt//:fmt",
   ],
   visibility = ["//visibility:public"],
 )

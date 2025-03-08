@@ -16,7 +16,7 @@ consteval size_t packed_sizeof()
   if constexpr (std::is_class_v<T>)
   {
     size_t sum = 0u;
-    detail::foreach_member_of<T>([&](auto&& pointer_to_member)
+    detail::foreach_member_of<T>([&](auto pointer_to_member)
     {
       using Member = lib::remove_member_pointer_t<typeof(pointer_to_member)>;
       sum += packed_sizeof<Member>();
@@ -35,7 +35,7 @@ consteval size_t serialized_sizeof()
   if constexpr (std::is_class_v<T>)
   {
     size_t sum = sizeof(Tag);
-    detail::foreach_member_of<T>([&](auto&& pointer_to_member)
+    detail::foreach_member_of<T>([&](auto pointer_to_member)
     {
       using Member = lib::remove_member_pointer_t<typeof(pointer_to_member)>;
       sum += serialized_sizeof<Member>();
