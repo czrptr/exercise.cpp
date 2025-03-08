@@ -10,8 +10,13 @@
 #include <fmt/core.h>
 
 #include "lib/type_traits.hh"
-#include "lib/demangle.hh"
+#include "lib/rtti.hh"
 #include "lib/span.hh"
+
+#ifdef RTTI_PRESENT
+#include <unordered_map>
+#include "lib/demangle.hh"
+#endif
 
 #include "serde/descriptor.hh"
 #include "serde/sizeof.hh"
@@ -21,6 +26,10 @@ namespace serde
 {
 namespace detail
 {
+
+#ifdef RTTI_PRESENT
+std::unordered_map<Tag, std::string>& typename_of_tag();
+#endif
 
 template<typename T>
 std::vector<uint8_t> serialize(T const& t)
@@ -33,6 +42,9 @@ std::vector<uint8_t> serialize(T const& t)
 template<typename T>
 std::vector<uint8_t> serialize_with_tag(T const& t)
 {
+#ifdef RTTI_PRESENT
+  typename_of_tag()[tag_of<T>] = lib::demangle(typeid(T).name());
+#endif
   return
     ranges::concat_view(serialize(tag_of<T>), serialize(t))
     | ranges::to<std::vector>;
@@ -61,14 +73,16 @@ std::pair<Tag, T> deserialize_with_tag(std::span<uint8_t const> bytes)
 template<typename T>
 void check(Tag tag, size_t index)
 {
-  if (tag != tag_of<T>)
-  {
-    // TODO: print type names instead of tag names if RTTI is present
-    throw std::logic_error(
-      fmt::format(
-        "Metadata mismatch: expecting '{}' but found '{}' at byte {}",
-        tag_of<T>, tag, index));
-  }
+  if (tag == tag_of<T>) return;
+
+  throw std::logic_error(
+    fmt::format(
+      "Metadata mismatch: expecting '{}' but found '{}' starting at byte {}",
+#ifdef RTTI_PRESENT
+      lib::demangle(typeid(T).name()), typename_of_tag()[tag], index));
+#else
+      tag_of<T>, tag, index));
+#endif
 }
 
 template<typename T>
@@ -131,6 +145,7 @@ std::vector<uint8_t> serialize(T const& t)
 {
   return detail::serialize_impl(t);
 }
+
 template<typename T>
 T deserialize(std::span<uint8_t const> bytes)
 {

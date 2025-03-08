@@ -36,4 +36,4 @@ std::string demangle(const char* mangled_name)
 #endif
 }
 
-}
+} // namespace lib
