@@ -42,11 +42,12 @@ std::vector<uint8_t> serialize(T const& t)
 template<typename T>
 std::vector<uint8_t> serialize_with_tag(T const& t)
 {
+  auto const tag = tag_of<T>;
 #ifdef RTTI_PRESENT
-  typename_of_tag()[tag_of<T>] = lib::demangle(typeid(T).name());
+  typename_of_tag()[tag] = lib::demangle(typeid(T).name());
 #endif
   return
-    ranges::concat_view(serialize(tag_of<T>), serialize(t))
+    ranges::concat_view(serialize(tag), serialize(t))
     | ranges::to<std::vector>;
 }
 
@@ -124,8 +125,8 @@ T deserialize_impl(std::span<uint8_t const> bytes, size_t index)
     T result;
     foreach_member_of<T>([&](auto pointer_to_member)
     {
-      using Member = lib::remove_member_pointer_t<typeof(pointer_to_member)>;
-      auto [bytes_to_process, bytes_left] = lib::split(bytes, serialized_sizeof<Member>());
+      using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
+      auto [bytes_to_process, bytes_left] = lib::split(bytes, serialized_sizeof<Member>);
       result.*pointer_to_member = deserialize_impl<Member>(bytes_to_process, index);
       bytes = bytes_left;
       index += bytes_to_process.size();

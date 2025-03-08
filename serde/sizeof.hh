@@ -11,15 +11,15 @@ namespace detail
 {
 
 template<typename T>
-consteval size_t packed_sizeof()
+consteval size_t packed_sizeof_impl()
 {
   if constexpr (std::is_class_v<T>)
   {
     size_t sum = 0u;
     detail::foreach_member_of<T>([&](auto pointer_to_member)
     {
-      using Member = lib::remove_member_pointer_t<typeof(pointer_to_member)>;
-      sum += packed_sizeof<Member>();
+      using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
+      sum += packed_sizeof_impl<Member>();
     });
     return sum;
   }
@@ -30,42 +30,30 @@ consteval size_t packed_sizeof()
 }
 
 template<typename T>
-consteval size_t serialized_sizeof()
+consteval size_t serialized_sizeof_impl()
 {
   if constexpr (std::is_class_v<T>)
   {
     size_t sum = sizeof(Tag);
     detail::foreach_member_of<T>([&](auto pointer_to_member)
     {
-      using Member = lib::remove_member_pointer_t<typeof(pointer_to_member)>;
-      sum += serialized_sizeof<Member>();
+      using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
+      sum += serialized_sizeof_impl<Member>();
     });
     return sum;
   }
   else
   {
-    return packed_sizeof<T>() + sizeof(Tag);
+    return packed_sizeof_impl<T>() + sizeof(Tag);
   }
 }
-
-template<typename T>
-struct packed_sizeof_impl
-{
-  static constexpr auto value = detail::packed_sizeof<T>();
-};
-
-template<typename T>
-struct serialized_sizeof_impl
-{
-  static constexpr auto value = detail::serialized_sizeof<T>();
-};
 
 } // namespace detail
 
 template<typename T>
-constexpr auto packed_sizeof = detail::packed_sizeof_impl<T>::value;
+constexpr auto packed_sizeof = detail::packed_sizeof_impl<T>();
 
 template<typename T>
-constexpr auto serialized_sizeof = detail::serialized_sizeof_impl<T>::value;
+constexpr auto serialized_sizeof = detail::serialized_sizeof_impl<T>();
 
 } // namespace serde

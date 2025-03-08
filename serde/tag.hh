@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <numeric>
 #include <tuple>
 #include <type_traits>
 #include <vector>
@@ -11,76 +12,30 @@
 namespace serde
 {
 
-using Tag = uint32_t;
+using Tag = uint64_t;
 
 namespace detail
 {
 
 constexpr Tag hash_of(std::vector<Tag> const& vector)
 {
-  // copied from stack overflow
-  Tag seed = vector.size();
-  for(auto it : vector)
+  // see https://stackoverflow.com/a/72073933
+  return std::accumulate(vector.begin(), vector.end(), vector.size(), [](Tag acc, Tag next)
   {
-    it = ((it >> 16) ^ it) * 0x45d9f3b;
-    it = ((it >> 16) ^ it) * 0x45d9f3b;
-    it = (it >> 16) ^ it;
-    seed ^= it + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-  }
-  return seed;
+    next = ((next >> 16) ^ next) * 0x45d9f3b;
+    next = ((next >> 16) ^ next) * 0x45d9f3b;
+    next = (next >> 16) ^ next;
+    return acc ^ (next + 0x9e3779b9 + (acc << 6) + (acc >> 2));
+  });
 }
 
 template<typename T>
 consteval Tag tag_of_impl()
 {
-  // TODO: maybe use prime numbers?
-  if constexpr (std::is_same_v<T, bool>)
+  if constexpr (std::is_pointer_v<T>)
   {
-    return 0u;
-  }
-  else if constexpr (std::is_same_v<T, char>)
-  {
-    return 1u;
-  }
-  else if constexpr (std::is_same_v<T, uint8_t>)
-  {
-    return 2u;
-  }
-  else if constexpr (std::is_same_v<T, int8_t>)
-  {
-    return 3u;
-  }
-  else if constexpr (std::is_same_v<T, uint16_t>)
-  {
-    return 4u;
-  }
-  else if constexpr (std::is_same_v<T, int16_t>)
-  {
-    return 5u;
-  }
-  else if constexpr (std::is_same_v<T, uint32_t>)
-  {
-    return 6u;
-  }
-  else if constexpr (std::is_same_v<T, int32_t>)
-  {
-    return 7u;
-  }
-  else if constexpr (std::is_same_v<T, uint64_t>)
-  {
-    return 8u;
-  }
-  else if constexpr (std::is_same_v<T, int64_t>)
-  {
-    return 9u;
-  }
-  else if constexpr (std::is_same_v<T, float>)
-  {
-    return 10u;
-  }
-  else if constexpr (std::is_same_v<T, double>)
-  {
-    return 11u;
+    // TODO: add pointer serialization support
+    static_assert(false, "cannot calculate tag for pointer type");
   }
   else if constexpr (std::is_class_v<T>)
   {
@@ -92,7 +47,7 @@ consteval Tag tag_of_impl()
 
     detail::foreach_member_of<T>([&](auto pointer_to_member)
     {
-      using Member = lib::remove_member_pointer_t<typeof(pointer_to_member)>;
+      using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
       member_tags.push_back(tag_of_impl<Member>());
     });
 
@@ -100,19 +55,18 @@ consteval Tag tag_of_impl()
   }
   else
   {
-    static_assert(false, "cannot calculate tag for the given type");
+    using Map = lib::type_map<
+      lib::type_list<bool, char, uint8_t, int8_t, uint16_t, int16_t, uint32_t, int32_t, uint64_t, int64_t, float, double>,
+      // some random prime numbers
+      lib::value_list<14411, 32099, 93827, 101719, 241793, 357787, 472993, 504547, 617761, 724967, 841021, 982337>>;
+
+    return Map::get<T>;
   }
 }
-
-template<typename T>
-struct tag_of_helper
-{
-  static constexpr auto value = detail::tag_of_impl<T>();
-};
 
 } // namespace detail
 
 template<typename T>
-constexpr auto tag_of = detail::tag_of_helper<T>::value;
+constexpr auto tag_of = detail::tag_of_impl<T>();
 
 } // namespace serde

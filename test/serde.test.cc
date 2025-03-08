@@ -131,9 +131,9 @@ TEST(Serde, metadata_mismatch)
   catch(std::logic_error error)
   {
 #ifdef RTTI_PRESENT
-    EXPECT_STREQ("Metadata mismatch: expecting 'double' but found 'int' starting at byte 9", error.what());
+    EXPECT_STREQ("Metadata mismatch: expecting 'double' but found 'int' starting at byte 17", error.what());
 #else
-    EXPECT_STREQ("Metadata mismatch: expecting '11' but found '7' starting at byte 9", error.what());
+    EXPECT_STREQ("Metadata mismatch: expecting '11' but found '7' starting at byte 17", error.what());
 #endif
   }
 }
