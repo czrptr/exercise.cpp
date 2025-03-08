@@ -58,7 +58,7 @@ std::vector<std::byte> serialize_with_tag(T const& t)
 {
   auto const tag = tag_of<T>;
 #ifdef RTTI_PRESENT
-  typename_of_tag()[tag] = lib::demangle(typeid(T).name());
+  typename_of_tag()[tag] = lib::nameof<T>();
 #endif
   return ranges::concat_view(serialize(tag), serialize(t)) | ranges::to<std::vector>;
 }
@@ -89,7 +89,7 @@ void check(Tag tag, size_t index)
   throw std::logic_error(fmt::format(
     "Metadata mismatch: expecting '{}' but found '{}' starting at byte {}",
 #ifdef RTTI_PRESENT
-    lib::demangle(typeid(T).name()), typename_of_tag()[tag], index));
+    lib::nameof<T>(), typename_of_tag()[tag], index));
 #else
     tag_of<T>, tag, index));
 #endif
