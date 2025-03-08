@@ -4,6 +4,7 @@
 #include <numeric>
 #include <vector>
 
+#include "lib/nameof.hh"
 #include "lib/type_traits.hh"
 
 #include "serde/descriptor.hh"
@@ -31,7 +32,7 @@ constexpr Tag hash_of(std::vector<Tag> const& vector)
 }
 
 template <typename T>
-consteval Tag tag_of_impl()
+Tag tag_of_impl()
 {
   if constexpr (std::is_pointer_v<T>)
   {
@@ -51,20 +52,17 @@ consteval Tag tag_of_impl()
   }
   else
   {
-    using Map = lib::type_map<
-      lib::type_list<
-        bool, char, uint8_t, int8_t, uint16_t, int16_t, uint32_t, int32_t, uint64_t, int64_t, float, double>,
-      lib::value_list<
-        // some random prime numbers
-        14411u, 32099u, 93827u, 101719u, 241793u, 357787u, 472993u, 504547u, 617761u, 724967u, 841021u, 982337u>>;
-
-    return Map::get<T>;
+    std::hash<std::string> const hasher;
+    return hasher(lib::nameof<T>());
   }
 }
 
 } // namespace detail
 
 template <typename T>
-constexpr auto tag_of = detail::tag_of_impl<T>();
+Tag tag_of()
+{
+  return detail::tag_of_impl<T>();
+}
 
 } // namespace serde

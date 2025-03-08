@@ -4,21 +4,16 @@
 #include <cassert>
 #include <cstddef>
 #include <stdexcept>
+#include <unordered_map>
 #include <vector>
 
 #include <fmt/core.h>
 
 #include <range/v3/all.hpp>
 
-#include "lib/rtti.hh"
+#include "lib/nameof.hh"
 #include "lib/span.hh"
 #include "lib/type_traits.hh"
-
-#ifdef RTTI_PRESENT
-#include <unordered_map>
-
-#include "lib/demangle.hh"
-#endif
 
 #include "serde/descriptor.hh"
 #include "serde/sizeof.hh"
@@ -29,9 +24,7 @@ namespace serde
 namespace detail
 {
 
-#ifdef RTTI_PRESENT
 std::unordered_map<Tag, std::string>& typename_of_tag();
-#endif
 
 inline constexpr auto little_endian_order()
 {
@@ -56,10 +49,8 @@ std::vector<std::byte> serialize(T const& t)
 template <typename T>
 std::vector<std::byte> serialize_with_tag(T const& t)
 {
-  auto const tag = tag_of<T>;
-#ifdef RTTI_PRESENT
+  auto const tag = tag_of<T>();
   typename_of_tag()[tag] = lib::nameof<T>();
-#endif
   return ranges::concat_view(serialize(tag), serialize(t)) | ranges::to<std::vector>;
 }
 
@@ -83,19 +74,16 @@ std::pair<Tag, T> deserialize_with_tag(std::span<std::byte const> bytes)
 template <typename T>
 void check_and_advance(Tag tag, size_t& cursor)
 {
-  if (tag == tag_of<T>)
+  Tag const expected_tag = tag_of<T>();
+  if (tag == expected_tag)
   {
     cursor += sizeof(Tag);
     return;
   }
 
   throw std::logic_error(fmt::format(
-    "Metadata mismatch: expecting '{}' but found '{}' starting at byte {}",
-#ifdef RTTI_PRESENT
-    lib::nameof<T>(), typename_of_tag()[tag], cursor));
-#else
-    tag_of<T>, tag, cursor));
-#endif
+    "Metadata mismatch: expecting '{}' but found '{}' starting at byte {}", lib::nameof<T>(), typename_of_tag()[tag],
+    cursor));
 }
 
 template <typename T>
@@ -113,7 +101,7 @@ std::vector<std::byte> serialize_impl(T const& t)
   std::vector<std::vector<std::byte>> bytes;
   if constexpr (std::is_class_v<T>)
   {
-    bytes.push_back(serialize(tag_of<T>));
+    bytes.push_back(serialize(tag_of<T>()));
     foreach_member_of<T>(
       [&](auto const pointer_to_member)
       {
