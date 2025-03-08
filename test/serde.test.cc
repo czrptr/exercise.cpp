@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
+#include <stdexcept>
 
 #include "serde/serde.hh"
+
+// TODO: test with MSVC
 
 struct Data
 {
@@ -102,4 +105,31 @@ TEST(Serde, serialize_length_calculation)
 
   auto bytes2 = serde::serialize(Node { 'c', 24, 63.0f, { 'a', 999.999 } });
   EXPECT_EQ(serde::serialized_sizeof<Node>, bytes2.size());
+}
+
+TEST(Serde, metadata_mismatch)
+{
+  auto bytes = [&]()
+  {
+    using namespace serde;
+    std::vector<std::vector<uint8_t>> bytes;
+
+    bytes.push_back(detail::serialize(tag_of<Data>));
+    bytes.push_back(detail::serialize(tag_of<char>));
+    bytes.push_back(detail::serialize('a'));
+    bytes.push_back(detail::serialize(tag_of<int>));
+    bytes.push_back(detail::serialize(999.999));
+
+    return bytes | ranges::views::join | ranges::to<std::vector>;
+  }();
+
+  try
+  {
+    serde::deserialize<Data>(bytes);
+    FAIL();
+  }
+  catch(std::logic_error error)
+  {
+    EXPECT_STREQ("Metadata mismatch: expecting '11' but found '7' at byte 9", error.what());
+  }
 }

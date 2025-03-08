@@ -5,6 +5,7 @@ build --cxxopt=-std=gnu++23
 build --cxxopt=-stdlib=libc++
 build --cxxopt=--debug
 build --cxxopt=-Wno-unused-command-line-argument
+# build --cxxopt=-fno-rtti
 build --strip=never
 
 build --linkopt=-lc++
