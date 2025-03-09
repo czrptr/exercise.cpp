@@ -16,6 +16,7 @@ struct Data
 {
   char n;
   double d;
+  Data* next;
 
   friend auto operator<=>(Data const& lhs, Data const& rhs) = default;
 };
@@ -23,7 +24,7 @@ struct Data
 template <>
 constexpr auto descriptor_of<Data>()
 {
-  return std::make_tuple(&Data::n, &Data::d);
+  return std::make_tuple(&Data::n, &Data::d, &Data::next);
 }
 
 struct Node
@@ -57,20 +58,22 @@ std::pair<serde::Tag, T> serialize_and_deserialize_with_tag(T const& t)
 
 TEST(Serde, packed_sizeof)
 {
-  EXPECT_EQ(sizeof(char) + sizeof(double), serde::packed_sizeof<Data>);
+  EXPECT_EQ(sizeof(char) + sizeof(double) + sizeof(Data*), serde::packed_sizeof<Data>);
 
   EXPECT_EQ(
-    2 * sizeof(char) + sizeof(int) + sizeof(float) + sizeof(double) + sizeof(YesOrNo), serde::packed_sizeof<Node>);
+    2 * sizeof(char) + sizeof(int) + sizeof(float) + sizeof(double) + sizeof(Data*) + sizeof(YesOrNo),
+    serde::packed_sizeof<Node>);
 }
 
 TEST(Serde, serialized_sizeof)
 {
   EXPECT_EQ(sizeof(char) + sizeof(serde::Tag), serde::serialized_sizeof<char>);
 
-  EXPECT_EQ(sizeof(char) + sizeof(double) + 3 * sizeof(serde::Tag), serde::serialized_sizeof<Data>);
+  EXPECT_EQ(sizeof(char) + sizeof(double) + sizeof(Data*) + 4 * sizeof(serde::Tag), serde::serialized_sizeof<Data>);
 
   EXPECT_EQ(
-    2 * sizeof(char) + sizeof(int) + sizeof(float) + sizeof(double) + sizeof(YesOrNo) + 8 * sizeof(serde::Tag),
+    2 * sizeof(char) + sizeof(int) + sizeof(float) + sizeof(double) + sizeof(Data*) + sizeof(YesOrNo) +
+      9 * sizeof(serde::Tag),
     serde::serialized_sizeof<Node>);
 }
 
@@ -92,7 +95,8 @@ TEST(Serde, serialize_and_deserialize_builtins_with_tags)
 
 TEST(Serde, serialize_and_deserialize_structs)
 {
-  auto const value1 = Data{'a', 999.999};
+  auto a = Data{'z', 5.4321, nullptr};
+  auto const value1 = Data{'a', 999.999, &a};
   EXPECT_EQ(value1, serialize_and_deserialize(value1));
 
   auto const value2 = Node{'c', 24, 63.0f, {'a', 999.999}, YesOrNo::Yes};
@@ -101,7 +105,7 @@ TEST(Serde, serialize_and_deserialize_structs)
 
 TEST(Serde, serialize_length_calculation)
 {
-  auto const bytes1 = serde::serialize(Data{'a', 999.999});
+  auto const bytes1 = serde::serialize(Data{'a', 999.999, nullptr});
   EXPECT_EQ(serde::serialized_sizeof<Data>, bytes1.size());
 
   auto const bytes2 = serde::serialize(Node{'c', 24, 63.0f, {'a', 999.999}, YesOrNo::Yes});
@@ -146,7 +150,7 @@ TEST(Serde, serialize_vector_of_builtins)
 
 TEST(Serde, serialize_vector_of_structs)
 {
-  auto const d = Data{'d', 420.69};
+  auto const d = Data{'d', 420.69, nullptr};
   std::vector<Data> const value1 = {d, d, d, d};
   EXPECT_EQ(value1, serialize_and_deserialize(value1));
 

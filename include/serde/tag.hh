@@ -36,12 +36,7 @@ constexpr Tag hash_of(std::vector<Tag> const& vector)
 template <typename T>
 Tag tag_of_impl()
 {
-  if constexpr (std::is_pointer_v<T>)
-  {
-    // TODO: add pointer serialization support
-    static_assert(false, "cannot calculate tag for pointer type");
-  }
-  else if constexpr (lib::is_vector<T>)
+  if constexpr (lib::is_vector<T>)
   {
     std::hash<std::string> const hasher;
     return hasher(lib::nameof<T>());
