@@ -4,7 +4,7 @@ cc_library(
   name = "lib",
   srcs = glob(["source/lib/**/*.cc"]),
   hdrs = glob(["include/lib/**/*.hh"]),
-  strip_include_prefix = "include",
+  includes = ["include"],
   deps = [
     "@range-v3//:range-v3",
     "@fmt//:fmt",
@@ -16,10 +16,10 @@ cc_library(
   name = "serde",
   srcs = glob(["source/serde/**/*.cc"]),
   hdrs = glob(["include/serde/**/*.hh"]),
+  includes = ["include"],
   deps = [
     "//:lib",
   ],
-  strip_include_prefix = "include",
   visibility = ["//visibility:public"],
 )
 
