@@ -1,4 +1,4 @@
-#include "serde/serde.hh"
+#include "serde/common.hh"
 
 namespace serde::detail
 {

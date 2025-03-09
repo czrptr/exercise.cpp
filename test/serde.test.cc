@@ -1,7 +1,7 @@
-#include "serde/serde.hh"
-
 #include <gtest/gtest.h>
 
+#include "serde/deserialize.hh"
+#include "serde/serialize.hh"
 #include "serde/tag.hh"
 
 // TODO: test with MSVC
