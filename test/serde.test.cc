@@ -2,6 +2,7 @@
 
 #include "serde/deserialize.hh"
 #include "serde/serialize.hh"
+#include "serde/sizeof.hh"
 #include "serde/tag.hh"
 
 // TODO: test with MSVC
@@ -53,7 +54,9 @@ T serialize_and_deserialize(T const& t)
 template <typename T>
 std::pair<serde::Tag, T> serialize_and_deserialize_with_tag(T const& t)
 {
-  return serde::detail::deserialize_with_tag<T>(serde::detail::serialize_with_tag(t));
+  auto const bytes = serde::detail::serialize_with_tag(t);
+  auto span = std::span(bytes.data(), bytes.size());
+  return serde::detail::deserialize_with_tag<T>(span);
 }
 
 TEST(Serde, packed_sizeof)

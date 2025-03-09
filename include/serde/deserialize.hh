@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include <cstddef>
 #include <stdexcept>
 #include <vector>
@@ -10,12 +9,10 @@
 #include <range/v3/all.hpp>
 
 #include "lib/nameof.hh"
-#include "lib/span.hh"
 #include "lib/type_traits.hh"
 
 #include "serde/common.hh"
 #include "serde/descriptor.hh"
-#include "serde/sizeof.hh"
 #include "serde/tag.hh"
 
 namespace serde
@@ -24,20 +21,18 @@ namespace detail
 {
 
 template <typename T>
-T deserialize(std::span<std::byte const> bytes)
+T deserialize(std::span<std::byte const>& bytes)
 {
-  assert(bytes.size() == sizeof(T));
-
   T result;
-  ranges::copy(bytes | little_endian_order(), reinterpret_cast<std::byte*>(&result));
+  ranges::copy(bytes | ranges::views::take(sizeof(T)) | little_endian_order(), reinterpret_cast<std::byte*>(&result));
+  bytes = bytes | ranges::views::drop(sizeof(T));
   return result;
 }
 
 template <typename T>
-std::pair<Tag, T> deserialize_with_tag(std::span<std::byte const> bytes)
+std::pair<Tag, T> deserialize_with_tag(std::span<std::byte const>& bytes)
 {
-  auto const [tag_bytes, value_bytes] = lib::split(bytes, sizeof(Tag));
-  return {deserialize<Tag>(tag_bytes), deserialize<T>(value_bytes)};
+  return {deserialize<Tag>(bytes), deserialize<T>(bytes)};
 }
 
 template <typename T>
@@ -57,54 +52,50 @@ void check_and_advance(Tag tag, size_t& cursor)
 }
 
 template <typename T>
-T deserialize_check_and_advance(std::span<std::byte const> bytes, size_t& cursor)
+T deserialize_check_and_advance(std::span<std::byte const>& bytes, size_t& cursor)
 {
   auto const [tag, value] = deserialize_with_tag<T>(bytes);
   check_and_advance<T>(tag, cursor);
   cursor += sizeof(T);
   return value;
 }
-template <typename T>
-T deserialize_impl(std::span<std::byte const> bytes, size_t& cursor);
 
 template <typename T>
-T deserialize_vector(std::span<std::byte const> bytes, size_t& cursor)
+T deserialize_impl(std::span<std::byte const>& bytes, size_t& cursor);
+
+template <typename T>
+T deserialize_vector(std::span<std::byte const>& bytes, size_t& cursor)
 {
-  auto bytes_to_process = lib::take(bytes, sizeof(Tag));
-  check_and_advance<T>(deserialize<Tag>(bytes_to_process), cursor);
+  check_and_advance<T>(deserialize<Tag>(bytes), cursor);
   using SizeType = typename T::size_type;
-  bytes_to_process = lib::take(bytes, serde::serialized_sizeof<SizeType>);
-  auto const size = deserialize_check_and_advance<size_t>(bytes_to_process, cursor);
+  auto const size = deserialize_check_and_advance<SizeType>(bytes, cursor);
   T result;
   result.reserve(size);
   for (size_t it = 0u; it < size; it += 1u)
   {
     using Element = typename T::value_type;
-    bytes_to_process = lib::take(bytes, serde::serialized_sizeof<Element>);
-    auto const element = deserialize_impl<Element>(bytes_to_process, cursor);
+    auto const element = deserialize_impl<Element>(bytes, cursor);
     result.push_back(element);
   }
   return result;
 }
 
 template <typename T>
-T deserialize_class(std::span<std::byte const> bytes, size_t& cursor)
+T deserialize_class(std::span<std::byte const>& bytes, size_t& cursor)
 {
-  auto bytes_to_process = lib::take(bytes, sizeof(Tag));
-  check_and_advance<T>(deserialize<Tag>(bytes_to_process), cursor);
+  check_and_advance<T>(deserialize<Tag>(bytes), cursor);
   T result;
   foreach_member_of<T>(
     [&](auto const pointer_to_member)
     {
       using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
-      bytes_to_process = lib::take(bytes, serialized_sizeof<Member>);
-      result.*pointer_to_member = deserialize_impl<Member>(bytes_to_process, cursor);
+      result.*pointer_to_member = deserialize_impl<Member>(bytes, cursor);
     });
   return result;
 }
 
 template <typename T>
-T deserialize_impl(std::span<std::byte const> bytes, size_t& cursor)
+T deserialize_impl(std::span<std::byte const>& bytes, size_t& cursor)
 {
   if constexpr (lib::is_vector<T>)
   {
@@ -130,9 +121,9 @@ T deserialize(std::span<std::byte const> bytes)
 }
 
 template <typename T>
-T deserialize(std::vector<std::byte> const& buffer)
+T deserialize(std::vector<std::byte> const& bytes)
 {
-  return deserialize<T>(std::span(buffer.data(), buffer.size()));
+  return deserialize<T>(std::span(bytes.data(), bytes.size()));
 }
 
 } // namespace serde
