@@ -95,6 +95,20 @@ T deserialize_class(std::span<std::byte const>& bytes, size_t& cursor)
 }
 
 template <typename T>
+T deserialize_pointer(std::span<std::byte const>& bytes, size_t& cursor)
+{
+  check_and_advance<T>(deserialize<Tag>(bytes), cursor);
+  auto const info = deserialize<SerializedPointer>(bytes);
+
+  if (info == SerializedPointer::IsNull)
+    return nullptr;
+
+  using Data = std::remove_pointer_t<T>;
+  auto const data = deserialize_impl<Data>(bytes, cursor);
+  return new Data(data);
+}
+
+template <typename T>
 T deserialize_impl(std::span<std::byte const>& bytes, size_t& cursor)
 {
   if constexpr (lib::is_vector<T>)
@@ -104,6 +118,10 @@ T deserialize_impl(std::span<std::byte const>& bytes, size_t& cursor)
   else if constexpr (std::is_class_v<T>)
   {
     return deserialize_class<T>(bytes, cursor);
+  }
+  else if constexpr (std::is_pointer_v<T>)
+  {
+    return deserialize_pointer<T>(bytes, cursor);
   }
   else
   {

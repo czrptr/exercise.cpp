@@ -60,6 +60,22 @@ std::vector<std::byte> serialize_class(T const& t)
     });
   return bytes | ranges::views::join | ranges::to<std::vector>;
 }
+template <typename T>
+std::vector<std::byte> serialize_pointer(T* pointer)
+{
+  std::vector<std::vector<std::byte>> bytes;
+  bytes.push_back(serialize(tag_of<T*>()));
+  if (pointer == nullptr)
+  {
+    bytes.push_back(serialize(SerializedPointer::IsNull));
+  }
+  else
+  {
+    bytes.push_back(serialize(SerializedPointer::IsPresent));
+    bytes.push_back(serialize_impl(*pointer));
+  }
+  return bytes | ranges::views::join | ranges::to<std::vector>;
+}
 
 template <typename T>
 std::vector<std::byte> serialize_impl(T const& t)
@@ -71,6 +87,10 @@ std::vector<std::byte> serialize_impl(T const& t)
   else if constexpr (std::is_class_v<T>)
   {
     return serialize_class(t);
+  }
+  else if constexpr (std::is_pointer_v<T>)
+  {
+    return serialize_pointer(t);
   }
   else
   {

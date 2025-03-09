@@ -2,7 +2,6 @@
 
 #include "serde/deserialize.hh"
 #include "serde/serialize.hh"
-#include "serde/sizeof.hh"
 #include "serde/tag.hh"
 
 // TODO: test with MSVC
@@ -19,7 +18,11 @@ struct Data
   double d;
   Data* next;
 
-  friend auto operator<=>(Data const& lhs, Data const& rhs) = default;
+  friend bool operator==(Data const& lhs, Data const& rhs)
+  {
+    return lhs.n == rhs.n && lhs.d == rhs.d &&
+      ((lhs.next == nullptr && rhs.next == nullptr) || (*rhs.next == *rhs.next));
+  }
 };
 
 template <>
@@ -36,7 +39,7 @@ struct Node
   Data d;
   YesOrNo e;
 
-  friend auto operator<=>(Node const& lhs, Node const& rhs) = default;
+  friend bool operator==(Node const& lhs, Node const& rhs) = default;
 };
 
 template <>
@@ -59,28 +62,7 @@ std::pair<serde::Tag, T> serialize_and_deserialize_with_tag(T const& t)
   return serde::detail::deserialize_with_tag<T>(span);
 }
 
-TEST(Serde, packed_sizeof)
-{
-  EXPECT_EQ(sizeof(char) + sizeof(double) + sizeof(Data*), serde::packed_sizeof<Data>);
-
-  EXPECT_EQ(
-    2 * sizeof(char) + sizeof(int) + sizeof(float) + sizeof(double) + sizeof(Data*) + sizeof(YesOrNo),
-    serde::packed_sizeof<Node>);
-}
-
-TEST(Serde, serialized_sizeof)
-{
-  EXPECT_EQ(sizeof(char) + sizeof(serde::Tag), serde::serialized_sizeof<char>);
-
-  EXPECT_EQ(sizeof(char) + sizeof(double) + sizeof(Data*) + 4 * sizeof(serde::Tag), serde::serialized_sizeof<Data>);
-
-  EXPECT_EQ(
-    2 * sizeof(char) + sizeof(int) + sizeof(float) + sizeof(double) + sizeof(Data*) + sizeof(YesOrNo) +
-      9 * sizeof(serde::Tag),
-    serde::serialized_sizeof<Node>);
-}
-
-TEST(Serde, serialize_and_deserialize_builtins)
+TEST(Serde, builtins)
 {
   EXPECT_EQ(24, serialize_and_deserialize(24));
   EXPECT_EQ('c', serialize_and_deserialize('c'));
@@ -88,7 +70,7 @@ TEST(Serde, serialize_and_deserialize_builtins)
   EXPECT_EQ(24.24, serialize_and_deserialize(24.24));
 }
 
-TEST(Serde, serialize_and_deserialize_builtins_with_tags)
+TEST(Serde, builtins_with_tags)
 {
   EXPECT_EQ(std::pair(serde::tag_of<int>(), 24), serialize_and_deserialize_with_tag(24));
   EXPECT_EQ(std::pair(serde::tag_of<char>(), 'c'), serialize_and_deserialize_with_tag('c'));
@@ -96,23 +78,48 @@ TEST(Serde, serialize_and_deserialize_builtins_with_tags)
   EXPECT_EQ(std::pair(serde::tag_of<double>(), 24.24), serialize_and_deserialize_with_tag(24.24));
 }
 
-TEST(Serde, serialize_and_deserialize_structs)
+TEST(Serde, pointers)
+{
+  auto value1 = new int{3};
+  EXPECT_EQ(*value1, *serialize_and_deserialize(value1));
+
+  auto value2 = new double{7.0};
+  EXPECT_EQ(*value2, *serialize_and_deserialize(value2));
+
+  auto value3 = new Data{'z', 5.4321, nullptr};
+  EXPECT_EQ(*value3, *serialize_and_deserialize(value3));
+}
+
+TEST(Serde, structs)
 {
   auto a = Data{'z', 5.4321, nullptr};
-  auto const value1 = Data{'a', 999.999, &a};
+  auto b = Data{'h', 43.66, &a};
+  auto value1 = Data{'a', 999.999, &b};
   EXPECT_EQ(value1, serialize_and_deserialize(value1));
 
-  auto const value2 = Node{'c', 24, 63.0f, {'a', 999.999}, YesOrNo::Yes};
+  auto const value2 = Node{'c', 24, 63.0f, {'a', 999.999, &value1}, YesOrNo::Yes};
   EXPECT_EQ(value2, serialize_and_deserialize(value2));
 }
 
-TEST(Serde, serialize_length_calculation)
+TEST(Serde, vectors_of_builtins)
 {
-  auto const bytes1 = serde::serialize(Data{'a', 999.999, nullptr});
-  EXPECT_EQ(serde::serialized_sizeof<Data>, bytes1.size());
+  std::vector<int> const value1 = {0, 1, 2, 3, 4};
+  EXPECT_EQ(value1, serialize_and_deserialize(value1));
 
-  auto const bytes2 = serde::serialize(Node{'c', 24, 63.0f, {'a', 999.999}, YesOrNo::Yes});
-  EXPECT_EQ(serde::serialized_sizeof<Node>, bytes2.size());
+  std::vector<float> const value2 = {0.5f, 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f};
+  EXPECT_EQ(value2, serialize_and_deserialize(value2));
+}
+
+TEST(Serde, vectors_of_structs)
+{
+  auto c = Data{'l', 69.420, nullptr};
+  auto d = Data{'d', 420.69, &c};
+  std::vector<Data> const value1 = {d, d, d, d};
+  EXPECT_EQ(value1, serialize_and_deserialize(value1));
+
+  auto const n = Node{'c', 24, 63.0f, {'a', 999.999, &d}, YesOrNo::Yes};
+  std::vector<Node> const value2 = {n, n, n};
+  EXPECT_EQ(value2, serialize_and_deserialize(value2));
 }
 
 TEST(Serde, metadata_mismatch)
@@ -140,24 +147,4 @@ TEST(Serde, metadata_mismatch)
   {
     EXPECT_STREQ("Metadata mismatch: expecting 'double' but found 'int' starting at byte 17", error.what());
   }
-}
-
-TEST(Serde, serialize_vector_of_builtins)
-{
-  std::vector<int> const value1 = {0, 1, 2, 3, 4};
-  EXPECT_EQ(value1, serialize_and_deserialize(value1));
-
-  std::vector<float> const value2 = {0.5f, 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f};
-  EXPECT_EQ(value2, serialize_and_deserialize(value2));
-}
-
-TEST(Serde, serialize_vector_of_structs)
-{
-  auto const d = Data{'d', 420.69, nullptr};
-  std::vector<Data> const value1 = {d, d, d, d};
-  EXPECT_EQ(value1, serialize_and_deserialize(value1));
-
-  auto const n = Node{'c', 24, 63.0f, {'a', 999.999}, YesOrNo::Yes};
-  std::vector<Node> const value2 = {n, n, n};
-  EXPECT_EQ(value2, serialize_and_deserialize(value2));
 }

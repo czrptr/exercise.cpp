@@ -10,6 +10,12 @@
 namespace serde::detail
 {
 
+enum class SerializedPointer : uint8_t
+{
+  IsNull = 0u,
+  IsPresent = 1u,
+};
+
 std::unordered_map<Tag, std::string>& typename_of_tag();
 
 inline constexpr auto little_endian_order()

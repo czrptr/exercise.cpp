@@ -9,18 +9,22 @@ namespace detail
 {
 
 template <typename T>
+struct defines_type
+{
+  using type = T;
+};
+
+template <typename T>
 struct remove_member_pointer_impl;
 
 template <typename StructT, typename MemberT>
-struct remove_member_pointer_impl<MemberT StructT::*>
+struct remove_member_pointer_impl<MemberT StructT::*> : defines_type<MemberT>
 {
-  using type = MemberT;
 };
 
 template <typename StructT, typename MemberT>
-struct remove_member_pointer_impl<MemberT StructT::* const>
+struct remove_member_pointer_impl<MemberT StructT::* const> : defines_type<MemberT>
 {
-  using type = MemberT;
 };
 
 template <typename T>
