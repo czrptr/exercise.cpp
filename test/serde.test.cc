@@ -57,7 +57,7 @@ T serialize_and_deserialize(T const& t)
 template <typename T>
 std::pair<serde::Tag, T> serialize_and_deserialize_with_tag(T const& t)
 {
-  auto const bytes = serde::detail::serialize_with_tag(t);
+  auto const bytes = serde::detail::serialize_raw_with_tag(t);
   auto span = std::span(bytes.data(), bytes.size());
   return serde::detail::deserialize_with_tag<T>(span);
 }
@@ -129,11 +129,11 @@ TEST(Serde, metadata_mismatch)
     using namespace serde;
     std::vector<std::vector<std::byte>> bytes;
 
-    bytes.push_back(detail::serialize(tag_of<Data>()));
-    bytes.push_back(detail::serialize(tag_of<char>()));
-    bytes.push_back(detail::serialize('a'));
-    bytes.push_back(detail::serialize(tag_of<int>()));
-    bytes.push_back(detail::serialize(999.999));
+    bytes.push_back(detail::serialize_raw(tag_of<Data>()));
+    bytes.push_back(detail::serialize_raw(tag_of<char>()));
+    bytes.push_back(detail::serialize_raw('a'));
+    bytes.push_back(detail::serialize_raw(tag_of<int>()));
+    bytes.push_back(detail::serialize_raw(999.999));
 
     return bytes | ranges::views::join | ranges::to<std::vector>;
   }();
