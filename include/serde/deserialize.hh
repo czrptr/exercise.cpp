@@ -72,14 +72,14 @@ T deserialize_vector(std::span<std::byte const>& bytes, size_t& cursor)
 template <typename T>
 T deserialize_class(std::span<std::byte const>& bytes, size_t& cursor)
 {
-  check<T>(deserialize_raw<Tag>(bytes), cursor);
   T result;
-  foreach_member_of<T>(
-    [&](auto const pointer_to_member)
-    {
-      using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
-      result.*pointer_to_member = dispatch_deserialize<Member>(bytes, cursor);
-    });
+  auto const deserialize_member = [&](auto const pointer_to_member)
+  {
+    using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
+    result.*pointer_to_member = dispatch_deserialize<Member>(bytes, cursor);
+  };
+  check<T>(deserialize_raw<Tag>(bytes), cursor);
+  foreach_member_of<T>(deserialize_member);
   return result;
 }
 
