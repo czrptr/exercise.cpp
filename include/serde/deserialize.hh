@@ -60,18 +60,13 @@ T dispatch_deserialize(std::span<std::byte const>& bytes, size_t& cursor);
 template <typename T>
 T deserialize_vector(std::span<std::byte const>& bytes, size_t& cursor)
 {
-  check<T>(deserialize_raw<Tag>(bytes), cursor);
-  using SizeType = typename T::size_type;
-  auto const size = deserialize_raw_and_check<SizeType>(bytes, cursor);
-  T result;
-  result.reserve(size);
-  for (size_t it = 0u; it < size; it += 1u)
+  auto const deserialize_element = [&](...)
   {
-    using Element = typename T::value_type;
-    auto const element = dispatch_deserialize<Element>(bytes, cursor);
-    result.push_back(element);
-  }
-  return result;
+    return dispatch_deserialize<typename T::value_type>(bytes, cursor);
+  };
+  check<T>(deserialize_raw<Tag>(bytes), cursor);
+  auto const size = deserialize_raw_and_check<typename T::size_type>(bytes, cursor);
+  return ranges::views::iota(0uz, size) | ranges::views::transform(deserialize_element) | ranges::to<std::vector>;
 }
 
 template <typename T>
@@ -98,8 +93,7 @@ T deserialize_pointer(std::span<std::byte const>& bytes, size_t& cursor)
     return nullptr;
 
   using Data = std::remove_pointer_t<T>;
-  auto const data = dispatch_deserialize<Data>(bytes, cursor);
-  return new Data(data);
+  return new Data(dispatch_deserialize<Data>(bytes, cursor));
 }
 
 template <typename T>
