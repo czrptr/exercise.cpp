@@ -21,7 +21,7 @@ namespace detail
 {
 
 template <typename T>
-T deserialize(std::span<std::byte const>& bytes)
+T deserialize_raw(std::span<std::byte const>& bytes)
 {
   T result;
   ranges::copy(bytes | ranges::views::take(sizeof(T)) | little_endian_order(), reinterpret_cast<std::byte*>(&result));
@@ -30,13 +30,7 @@ T deserialize(std::span<std::byte const>& bytes)
 }
 
 template <typename T>
-std::pair<Tag, T> deserialize_with_tag(std::span<std::byte const>& bytes)
-{
-  return {deserialize<Tag>(bytes), deserialize<T>(bytes)};
-}
-
-template <typename T>
-void check_and_advance(Tag tag, size_t& cursor)
+void check(Tag tag, size_t& cursor)
 {
   Tag const expected_tag = tag_of<T>();
   if (tag == expected_tag)
@@ -44,37 +38,37 @@ void check_and_advance(Tag tag, size_t& cursor)
     cursor += sizeof(Tag);
     return;
   }
-  throw std::logic_error(fmt::format(
-    "Metadata mismatch: expecting '{}' but found '{}' starting at byte {}",
-    lib::nameof<T>(),
-    typename_of_tag()[tag],
-    cursor));
+
+  auto const found = typename_of_tag().contains(tag) ? fmt::format("'{}'", typename_of_tag()[tag]) : "no metadata";
+  throw std::logic_error(
+    fmt::format("Metadata mismatch: expecting '{}' but found {} starting at byte {}", lib::nameof<T>(), found, cursor));
 }
 
 template <typename T>
-T deserialize_check_and_advance(std::span<std::byte const>& bytes, size_t& cursor)
+T deserialize_raw_and_check(std::span<std::byte const>& bytes, size_t& cursor)
 {
-  auto const [tag, value] = deserialize_with_tag<T>(bytes);
-  check_and_advance<T>(tag, cursor);
+  auto const tag = deserialize_raw<Tag>(bytes);
+  auto const value = deserialize_raw<T>(bytes);
+  check<T>(tag, cursor);
   cursor += sizeof(T);
   return value;
 }
 
 template <typename T>
-T deserialize_impl(std::span<std::byte const>& bytes, size_t& cursor);
+T dispatch_deserialize(std::span<std::byte const>& bytes, size_t& cursor);
 
 template <typename T>
 T deserialize_vector(std::span<std::byte const>& bytes, size_t& cursor)
 {
-  check_and_advance<T>(deserialize<Tag>(bytes), cursor);
+  check<T>(deserialize_raw<Tag>(bytes), cursor);
   using SizeType = typename T::size_type;
-  auto const size = deserialize_check_and_advance<SizeType>(bytes, cursor);
+  auto const size = deserialize_raw_and_check<SizeType>(bytes, cursor);
   T result;
   result.reserve(size);
   for (size_t it = 0u; it < size; it += 1u)
   {
     using Element = typename T::value_type;
-    auto const element = deserialize_impl<Element>(bytes, cursor);
+    auto const element = dispatch_deserialize<Element>(bytes, cursor);
     result.push_back(element);
   }
   return result;
@@ -83,13 +77,13 @@ T deserialize_vector(std::span<std::byte const>& bytes, size_t& cursor)
 template <typename T>
 T deserialize_class(std::span<std::byte const>& bytes, size_t& cursor)
 {
-  check_and_advance<T>(deserialize<Tag>(bytes), cursor);
+  check<T>(deserialize_raw<Tag>(bytes), cursor);
   T result;
   foreach_member_of<T>(
     [&](auto const pointer_to_member)
     {
       using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
-      result.*pointer_to_member = deserialize_impl<Member>(bytes, cursor);
+      result.*pointer_to_member = dispatch_deserialize<Member>(bytes, cursor);
     });
   return result;
 }
@@ -97,19 +91,19 @@ T deserialize_class(std::span<std::byte const>& bytes, size_t& cursor)
 template <typename T>
 T deserialize_pointer(std::span<std::byte const>& bytes, size_t& cursor)
 {
-  check_and_advance<T>(deserialize<Tag>(bytes), cursor);
-  auto const info = deserialize<SerializedPointer>(bytes);
+  check<T>(deserialize_raw<Tag>(bytes), cursor);
+  auto const info = deserialize_raw<SerializedPointer>(bytes);
 
   if (info == SerializedPointer::IsNull)
     return nullptr;
 
   using Data = std::remove_pointer_t<T>;
-  auto const data = deserialize_impl<Data>(bytes, cursor);
+  auto const data = dispatch_deserialize<Data>(bytes, cursor);
   return new Data(data);
 }
 
 template <typename T>
-T deserialize_impl(std::span<std::byte const>& bytes, size_t& cursor)
+T dispatch_deserialize(std::span<std::byte const>& bytes, size_t& cursor)
 {
   if constexpr (lib::is_vector<T>)
   {
@@ -125,7 +119,7 @@ T deserialize_impl(std::span<std::byte const>& bytes, size_t& cursor)
   }
   else
   {
-    return deserialize_check_and_advance<T>(bytes, cursor);
+    return deserialize_raw_and_check<T>(bytes, cursor);
   }
 }
 
@@ -135,7 +129,7 @@ template <typename T>
 T deserialize(std::span<std::byte const> bytes)
 {
   size_t cursor = 0u;
-  return detail::deserialize_impl<T>(bytes, cursor);
+  return detail::dispatch_deserialize<T>(bytes, cursor);
 }
 
 template <typename T>
