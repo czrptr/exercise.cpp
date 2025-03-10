@@ -22,10 +22,10 @@ constexpr auto foreach_member_of(F&& f)
   if constexpr (std::is_same_v<ReturnType, void>)
   {
     std::apply(
-      [&](auto... members)
+      [&](auto&&... members)
       {
         // apply f to each argument
-        ((f(members)), ...);
+        ((std::forward<F>(f)(std::forward<typeof(members)>(members))), ...);
       },
       descriptor);
   }
@@ -36,10 +36,10 @@ constexpr auto foreach_member_of(F&& f)
     auto it = 0uz;
 
     std::apply(
-      [&](auto... members)
+      [&](auto&&... members)
       {
         // apply f to each argument
-        ((result[it++] = f(members)), ...);
+        ((result[it++] = std::forward<F>(f)(std::forward<typeof(members)>(members))), ...);
       },
       descriptor);
 

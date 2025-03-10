@@ -23,7 +23,7 @@ namespace detail
 template <typename... Rest>
 inline auto merge(Rest&&... rest)
 {
-  return ranges::concat_view(rest...) | ranges::to<std::vector>;
+  return ranges::concat_view(std::forward<Rest>(rest)...) | ranges::to<std::vector>;
 }
 
 template <typename T>
