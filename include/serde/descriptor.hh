@@ -1,6 +1,9 @@
 #pragma once
 
+#include <array>
+#include <functional>
 #include <tuple>
+#include <type_traits>
 
 template <typename T>
 constexpr auto descriptor_of()
@@ -12,15 +15,37 @@ namespace serde::detail
 {
 
 template <typename T, typename F>
-constexpr void foreach_member_of(F&& f)
+constexpr auto foreach_member_of(F&& f)
 {
-  std::apply(
-    [f](auto... members)
-    {
-      // apply f to each argument
-      ((f(members)), ...);
-    },
-    descriptor_of<T>());
+  auto const descriptor = descriptor_of<T>();
+  using ReturnType = decltype(f(std::get<0>(descriptor)));
+
+  if constexpr (std::is_same_v<ReturnType, void>)
+  {
+    std::apply(
+      [&](auto... members)
+      {
+        // apply f to each argument
+        ((f(members)), ...);
+      },
+      descriptor);
+  }
+  else
+  {
+    auto const size = std::tuple_size_v<typeof(descriptor)>;
+    std::array<ReturnType, size> result;
+    auto it = 0uz;
+
+    std::apply(
+      [&](auto... members)
+      {
+        // apply f to each argument
+        ((result[it++] = f(members)), ...);
+      },
+      descriptor);
+
+    return result;
+  }
 }
 
 } // namespace serde::detail

@@ -1,8 +1,8 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <numeric>
-#include <vector>
 
 #include "lib/nameof.hh"
 #include "lib/type_traits.hh"
@@ -17,7 +17,8 @@ using Tag = uint64_t;
 namespace detail
 {
 
-constexpr Tag hash_of(std::vector<Tag> const& vector)
+template <size_t Length>
+constexpr Tag hash_of(std::array<Tag, Length> const& vector)
 {
   // see https://stackoverflow.com/a/72073933
   return std::accumulate(
@@ -43,14 +44,12 @@ Tag tag_of_impl()
   }
   else if constexpr (std::is_class_v<T>)
   {
-    std::vector<Tag> member_tags;
-    detail::foreach_member_of<T>(
-      [&](auto const pointer_to_member)
-      {
-        using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
-        member_tags.push_back(tag_of_impl<Member>());
-      });
-    return detail::hash_of(member_tags);
+    auto const tag_of_member = [&](auto const pointer_to_member)
+    {
+      using Member = lib::remove_member_pointer<typeof(pointer_to_member)>;
+      return tag_of_impl<Member>();
+    };
+    return hash_of(foreach_member_of<T>(tag_of_member));
   }
   else
   {

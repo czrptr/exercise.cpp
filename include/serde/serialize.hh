@@ -57,12 +57,11 @@ std::vector<std::byte> serialize_vector(std::vector<T> const& vector)
 template <typename T>
 std::vector<std::byte> serialize_class(T const& t)
 {
-  std::vector<std::vector<std::byte>> members;
-  foreach_member_of<T>(
-    [&](auto const pointer_to_member)
-    {
-      members.push_back(dispatch_serialize(t.*pointer_to_member));
-    });
+  auto const serialize_member = [&](auto const pointer_to_member)
+  {
+    return dispatch_serialize(t.*pointer_to_member);
+  };
+  auto const members = foreach_member_of<T>(serialize_member);
   return merge(serialize_raw(tag_of<T>()), members | ranges::views::join);
 }
 
