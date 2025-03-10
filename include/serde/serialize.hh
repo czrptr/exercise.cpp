@@ -71,7 +71,7 @@ std::vector<std::byte> serialize_pointer(T* pointer)
   auto const serialized_tag = serialize_raw(tag_of<T*>());
   return (pointer == nullptr)
     ? merge(serialized_tag, serialize_raw(SerializedPointer::IsNull))
-    : merge(serialized_tag, serialize_raw(SerializedPointer::IsPresent), dispatch_serialize(*pointer));
+    : merge(serialized_tag, serialize_raw(SerializedPointer::HasData), dispatch_serialize(*pointer));
 }
 
 template <typename T>

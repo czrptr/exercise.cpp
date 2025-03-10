@@ -13,7 +13,7 @@ namespace serde::detail
 enum class SerializedPointer : uint8_t
 {
   IsNull = 0u,
-  IsPresent = 1u,
+  HasData = 1u,
 };
 
 std::unordered_map<Tag, std::string>& typename_of_tag();
